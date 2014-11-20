@@ -28,21 +28,23 @@ class InfluxDBReporterSpec
   with Instrumented {
 
   val random = Random
-  override lazy val metricBaseName = MetricName("Test")
-  val timer = metrics.timer("mytimer")
+  override lazy val metricBaseName = MetricName("test")
+  val meter = metrics.meter("mymeter")
 
   "InfluxDBReporter" should {
     "send out proper JSON over UDP" in {
       val interval = 5.seconds
       val reporter = system.actorOf(Props(classOf[Reporter], interval, metrics.registry, "10.0.26.199", 4444))
 
-      for (i <- 1 to 20) {
-        timer.time {
-          Thread.sleep(random.nextInt(30))
-        }
+      val total = 20*1000
+      for (i <- 1 to total) {
+        meter.mark()
+        Thread.sleep(random.nextInt(30))
       }
 
-      Thread.sleep((interval * 3).toMillis)
+      println("DONE ADDING DATA")
+
+//      Thread.sleep((total*20 / interval.toMillis))
     }
   }
 

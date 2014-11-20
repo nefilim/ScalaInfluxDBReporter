@@ -2,6 +2,7 @@ package org.nefilim.influxdb
 
 import java.net.InetSocketAddress
 import java.text.DecimalFormat
+import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, Props}
 import com.codahale.metrics.{Meter, MetricRegistry, Timer}
@@ -13,83 +14,93 @@ import scala.language.implicitConversions
 /**
  * Created by peter on 11/16/14.
  */
-case class InfluxEntry(name: String, columns: Seq[String], points: Option[List[List[BigDecimal]]])
+case class InfluxEntry(name: String, time_precision: String = "ms", columns: Seq[String], points: Option[List[List[BigDecimal]]])
 
 object Reporter {
+  val MilliSeconds = "ms"
+
   object Columns {
     val TimerColumns = List(
       "time",
-      "count",
-      "min",
-      "max",
-      "mean",
-      "std-dev",
-      "50th-percentile",
-      "75th-percentile",
-      "95th-percentile",
-      "99th-percentile",
-      "999th-percentile",
-      "one-minute",
-      "five-minute",
-      "fifteen-minute",
-      "mean-rate"
+      "tcount",
+      "tmin",
+      "tmax",
+      "tmean",
+      "std_dev",
+      "50th_percentile",
+      "75th_percentile",
+      "95th_percentile",
+      "99th_percentile",
+      "999th_percentile",
+      "one_minute",
+      "five_minute",
+      "fifteen_minute",
+      "mean_rate"
     )
 
     val MeterColumns = List(
       "time",
-      "count",
-      "one-minute",
-      "five-minute",
-      "fifteen-minute",
-      "mean-rate"
+      "mcount",
+      "one_minute",
+      "five_minute",
+      "fifteen_minute",
+      "mean_rate"
     )
+
+    // make configurable?
+    val RateFactor = TimeUnit.SECONDS.toSeconds(1)
+    val DurationFactor = 1.0 / TimeUnit.MILLISECONDS.toNanos(1)
+
+    def convertDuration(duration: Double): Double = duration * DurationFactor
+    def convertRate(rate: Double): Double = rate * RateFactor
   }
 
   object Conversion {
     import org.nefilim.influxdb.Reporter.Columns._
     import spray.json._
     object InfluxJsonProtocol extends DefaultJsonProtocol {
-      implicit val influxEntryFormat = jsonFormat3(InfluxEntry)
+      implicit val influxEntryFormat = jsonFormat4(InfluxEntry)
     }
     import org.nefilim.influxdb.Reporter.Conversion.InfluxJsonProtocol._
 
     def round(d: Double)(implicit formatter: DecimalFormat): BigDecimal = BigDecimal(formatter.format(d))
     implicit def long2BigDecimal(l: Long) = BigDecimal(l)
 
+    // TODO do unit conversion where applicable
     def timer2Json(name: String, timer: Timer)(implicit formatter: DecimalFormat): String = {
       val snapshot = timer.getSnapshot
       val point = List(List[BigDecimal](
-        System.currentTimeMillis()/1000,
+        System.currentTimeMillis(),
         snapshot.size,
-        snapshot.getMin,
-        snapshot.getMax,
-        round(snapshot.getMean),
-        round(snapshot.getStdDev),
-        round(snapshot.getMedian),
-        round(snapshot.get75thPercentile()),
-        round(snapshot.get95thPercentile()),
-        round(snapshot.get99thPercentile()),
-        round(snapshot.get999thPercentile()),
-        round(timer.getOneMinuteRate),
-        round(timer.getFiveMinuteRate),
-        round(timer.getFifteenMinuteRate),
-        round(timer.getMeanRate)
+        round(convertDuration(snapshot.getMin)),
+        round(convertDuration(snapshot.getMax)),
+        round(convertDuration(snapshot.getMean)),
+        round(convertDuration(snapshot.getStdDev)),
+        round(convertDuration(snapshot.getMedian)),
+        round(convertDuration(snapshot.get75thPercentile())),
+        round(convertDuration(snapshot.get95thPercentile())),
+        round(convertDuration(snapshot.get99thPercentile())),
+        round(convertDuration(snapshot.get999thPercentile())),
+        round(convertRate(timer.getOneMinuteRate)),
+        round(convertRate(timer.getFiveMinuteRate)),
+        round(convertRate(timer.getFifteenMinuteRate)),
+        round(convertRate(timer.getMeanRate))
       ))
       assert (TimerColumns.length == point(0).size)
-      s"[${InfluxEntry(name, TimerColumns, Some(point)).toJson.compactPrint}]"
+      s"[${InfluxEntry(name, MilliSeconds, TimerColumns, Some(point)).toJson.compactPrint}]"
     }
 
     def meter2Json(name: String, meter: Meter)(implicit formatter: DecimalFormat): String = {
       val point = List(List[BigDecimal](
-        System.currentTimeMillis()/1000,
+        System.currentTimeMillis(),
         meter.getCount,
-        round(meter.getOneMinuteRate),
-        round(meter.getFiveMinuteRate),
-        round(meter.getFifteenMinuteRate),
-        round(meter.getMeanRate)
+        round(convertRate(meter.getOneMinuteRate)),
+        round(convertRate(meter.getFiveMinuteRate)),
+        round(convertRate(meter.getFifteenMinuteRate)),
+        round(convertRate(meter.getMeanRate))
       ))
       assert (MeterColumns.length == point(0).size)
-      s"[${InfluxEntry(name, MeterColumns, Some(point)).toJson.compactPrint}]"
+      s"[${InfluxEntry(name, MilliSeconds, MeterColumns, Some(point)).toJson.compactPrint}]"
     }
   }
 
@@ -104,6 +115,8 @@ class Reporter(reportingInterval: FiniteDuration, registry: MetricRegistry, infl
   with ActorLogging {
 
   import context.dispatcher
+
+  log.info("starting InfluxDB Reporter with host {}:{} at interval {}", influxDBHost, influxDBPort, reportingInterval)
   
   context.system.scheduler.schedule(reportingInterval, reportingInterval, self, Report)
   val udpSender = context.actorOf(Props(classOf[UDPSender], new InetSocketAddress(influxDBHost, influxDBPort)))

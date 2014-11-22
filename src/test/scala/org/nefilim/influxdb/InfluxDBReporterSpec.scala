@@ -41,10 +41,6 @@ class InfluxDBReporterSpec
         meter.mark()
         Thread.sleep(random.nextInt(30))
       }
-
-      println("DONE ADDING DATA")
-
-//      Thread.sleep((total*20 / interval.toMillis))
     }
   }
 

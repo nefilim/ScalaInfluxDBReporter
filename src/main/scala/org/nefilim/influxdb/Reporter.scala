@@ -44,7 +44,8 @@ object Reporter {
       "one_minute",
       "five_minute",
       "fifteen_minute",
-      "mean_rate"
+      "mean_rate",
+      "mcount_delta"
     )
 
     // make configurable?
@@ -55,9 +56,14 @@ object Reporter {
     def convertRate(rate: Double): Double = rate * RateFactor
   }
 
-  object Conversion {
+  // NOT THREAD SAFE should only be accessed from the actor
+  // TODO safer to move this inside the actor? makes for ugly interface
+  private var previousMeterCount = Map.empty[String, Long] // no snapshot available :(
+
+  private[influxdb] object Conversion {
     import org.nefilim.influxdb.Reporter.Columns._
     import spray.json._
+
     object InfluxJsonProtocol extends DefaultJsonProtocol {
       implicit val influxEntryFormat = jsonFormat4(InfluxEntry)
     }
@@ -66,11 +72,10 @@ object Reporter {
     def round(d: Double)(implicit formatter: DecimalFormat): BigDecimal = BigDecimal(formatter.format(d))
     implicit def long2BigDecimal(l: Long) = BigDecimal(l)
 
-    // TODO do unit conversion where applicable
-    def timer2Json(name: String, timer: Timer)(implicit formatter: DecimalFormat): String = {
+    def timer2Json(name: String, timer: Timer, timestamp: Long)(implicit formatter: DecimalFormat): String = {
       val snapshot = timer.getSnapshot
       val point = List(List[BigDecimal](
-        System.currentTimeMillis(),
+        timestamp,
         snapshot.size,
         round(convertDuration(snapshot.getMin)),
         round(convertDuration(snapshot.getMax)),
@@ -90,16 +95,19 @@ object Reporter {
       s"[${InfluxEntry(name, MilliSeconds, TimerColumns, Some(point)).toJson.compactPrint}]"
     }
 
-    def meter2Json(name: String, meter: Meter)(implicit formatter: DecimalFormat): String = {
+    def meter2Json(name: String, meter: Meter, timestamp: Long)(implicit formatter: DecimalFormat): String = {
+      val currentCount = meter.getCount
       val point = List(List[BigDecimal](
-        System.currentTimeMillis(),
-        meter.getCount,
+        timestamp,
+        currentCount,
         round(convertRate(meter.getOneMinuteRate)),
         round(convertRate(meter.getFiveMinuteRate)),
         round(convertRate(meter.getFifteenMinuteRate)),
-        round(convertRate(meter.getMeanRate))
+        round(convertRate(meter.getMeanRate)),
+        currentCount - previousMeterCount.get(name).getOrElse(0L)
       ))
       assert (MeterColumns.length == point(0).size)
+      previousMeterCount = previousMeterCount + (name -> currentCount)
       s"[${InfluxEntry(name, MilliSeconds, MeterColumns, Some(point)).toJson.compactPrint}]"
     }
   }
@@ -127,14 +135,16 @@ class Reporter(reportingInterval: FiniteDuration, registry: MetricRegistry, infl
   def receive: Receive = {
     case Report =>
       log.debug("waking up to report")
+      // on the fence about synchronizing timestamps, it seems less accurate ultimately but probably useful to influx/grafana
+      val timestamp = System.currentTimeMillis()/1000
       val meters = registry.getMeters
       meters.keySet.asScala.foreach { k =>
-        udpSender ! meter2Json(k, meters.get(k))
+        udpSender ! meter2Json(k, meters.get(k), timestamp)
       }
 
       val timers = registry.getTimers
       timers.keySet.asScala.foreach { k =>
-        udpSender ! timer2Json(k, timers.get(k))
+        udpSender ! timer2Json(k, timers.get(k), timestamp)
       }
   }
 }

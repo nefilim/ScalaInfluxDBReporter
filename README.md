@@ -1,7 +1,7 @@
 ScalaInfluxDBReporter
 =====================
 
-A simple Scala (codahale) metrics (https://github.com/erikvanoosten/metrics-scala) reporter for InfluxDB over UDP using Akka.
+A simple Metrics-Scala (codahale based: https://github.com/erikvanoosten/metrics-scala) reporter for InfluxDB over UDP using Akka.
 
 It currently only reports Timers and Meters as those are the ones I use but it would be trivial to add support for the rest. 
 

@@ -33,8 +33,7 @@ class InfluxDBReporterSpec
 
   "InfluxDBReporter" should {
     "send out proper JSON over UDP" in {
-      val interval = 5.seconds
-      val reporter = system.actorOf(Props(classOf[Reporter], interval, metrics.registry, "influx db host", 4444))
+      val reporter = system.actorOf(Reporter.props(metricRegistry, "host", 4444, 10.seconds))
 
       val total = 20*1000
       for (i <- 1 to total) {

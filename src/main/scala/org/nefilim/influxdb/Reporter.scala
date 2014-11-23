@@ -113,6 +113,9 @@ object Reporter {
   }
 
   case object Report
+
+  def props(registry: MetricRegistry, influxDBHost: String, influxDBPort: Int = 4444, reportingInterval: FiniteDuration = 60.seconds) =
+    Props(classOf[Reporter], reportingInterval, registry, influxDBHost, influxDBPort)
 }
 
 import org.nefilim.influxdb.Reporter.Conversion._

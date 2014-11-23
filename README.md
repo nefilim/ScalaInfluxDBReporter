@@ -12,4 +12,7 @@ Usage
 
 The reporter is modeled as an Akka actor, which limits integration possibilities (but why aren't you using Akka?:P). 
 
-See src/test/scala/org/nefilim/influxdb/InfluxDBReporterSpec.scala for sample usage. 
+See src/test/scala/org/nefilim/influxdb/InfluxDBReporterSpec.scala for sample usage but basically it comes down to this one liner:
+
+       val reporter = system.actorOf(Reporter.props(metricRegistry, "host", 4444, 10.seconds))
+

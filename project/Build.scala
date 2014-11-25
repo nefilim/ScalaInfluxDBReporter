@@ -14,7 +14,7 @@ object MyBuild extends Build {
   lazy val buildSettings = Defaults.coreDefaultSettings ++ graphSettings ++ Seq( // must include Defaults.defaultSettings somewhere (early) in the chain
     organization := "org.nefilim",
     scalaVersion := "2.10.4",
-    crossScalaVersions := Seq("2.10.4", "2.11.2"),
+    crossScalaVersions := Seq("2.10.4", "2.11.4"),
     version := "0.6"
   )
 

@@ -11,13 +11,11 @@ object MyBuild extends Build {
     shellPrompt := { s => Project.extract(s).currentProject.id + " > " }
   }
 
-  // TODO move these vals to V
-  val myScalaVersion = "2.10.4"
-
-  lazy val buildSettings = Defaults.defaultSettings ++ graphSettings ++ Seq( // must include Defaults.defaultSettings somewhere (early) in the chain
+  lazy val buildSettings = Defaults.coreDefaultSettings ++ graphSettings ++ Seq( // must include Defaults.defaultSettings somewhere (early) in the chain
     organization := "org.nefilim",
-    scalaVersion := myScalaVersion,
-    version := "0.5"
+    scalaVersion := "2.10.4",
+    crossScalaVersions := Seq("2.10.4", "2.11.2"),
+    version := "0.6"
   )
 
   lazy val publishSettings = Seq(
@@ -30,7 +28,7 @@ object MyBuild extends Build {
         Some("releases"  at nexus + "service/local/staging/deploy/maven2")
     },
     pomExtra := (
-      <url>https://github.com/nefilim/ScalaInfluxDBReport</url>
+      <url>https://github.com/nefilim/ScalaInfluxDBReporter</url>
         <licenses>
           <license>
             <name>GNU General Public License (GPL)</name>
@@ -39,8 +37,8 @@ object MyBuild extends Build {
           </license>
         </licenses>
         <scm>
-          <url>https://github.com/nefilim/ScalaInfluxDBReport.git</url>
-          <connection>scm:git:https://github.com/nefilim/ScalaInfluxDBReport.git</connection>
+          <url>https://github.com/nefilim/ScalaInfluxDBReporter.git</url>
+          <connection>scm:git:https://github.com/nefilim/ScalaInfluxDBReporter.git</connection>
         </scm>
         <developers>
           <developer>
@@ -56,7 +54,7 @@ object MyBuild extends Build {
     testOptions in Test += Tests.Argument("-oDF")
   )
 
-  lazy val influxDBReportProject = Project(
+  lazy val influxDBReporterProject = Project(
     id = "influxdbreporter",
     base = file("."),
     settings = defaultSettings ++ Seq(

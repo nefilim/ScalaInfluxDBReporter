@@ -18,8 +18,8 @@ object Dependencies {
 
   object Libraries {
     val scalaTest= "org.scalatest"           %% "scalatest"                % V.scalaTest % "test"
-    val scalaLogging="com.typesafe.scala-logging" % "scala-logging-api_2.10" % V.scalaLogging
-    val scalaLoggingSlf4j="com.typesafe.scala-logging" % "scala-logging-slf4j_2.10" % V.scalaLogging
+    val scalaLogging="com.typesafe.scala-logging" %% "scala-logging-api" % V.scalaLogging
+    val scalaLoggingSlf4j="com.typesafe.scala-logging" %% "scala-logging-slf4j" % V.scalaLogging
     val logback = "ch.qos.logback"           % "logback-classic"          % V.logback % "test"
 
     val sprayClient = "io.spray"             %% "spray-client"		% V.spray

@@ -15,7 +15,7 @@ object MyBuild extends Build {
     organization := "org.nefilim",
     scalaVersion := "2.11.4",
     crossScalaVersions := Seq("2.10.4", "2.11.4"),
-    version := "0.7"
+    version := "0.8"
   )
 
   lazy val publishSettings = Seq(
